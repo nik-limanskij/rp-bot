@@ -1,5 +1,6 @@
 import asyncio
 import os
+import random
 
 from aiogram import Bot, Dispatcher, F
 from aiogram.filters import CommandStart
@@ -17,12 +18,15 @@ TOKEN = os.getenv("TOKEN")
 if not TOKEN:
     raise RuntimeError("Переменная окружения TOKEN не задана")
 
-print("=== BOT v10 ===")
+print("=== BOT v12 ===")
 
 bot = Bot(token=TOKEN)
 dp = Dispatcher()
 
 BOT_NAME = "@love_fantasies_rp_bot"
+
+# Те, кто нажал /start: список кортежей (user_id, first_name)
+USERS = []
 
 ACTIONS = {
     "hug": {
@@ -60,7 +64,7 @@ ACTIONS = {
         "accepted": "{responder} получил(а) шлепок по попке",
         "declined": "{responder} ловко увернулся(лась)",
     },
-        "air_kiss": {
+    "air_kiss": {
         "label": "Воздушный поцелуй",
         "keywords": ["воздушный", "чмок в воздух", "air_kiss"],
         "offer": "{actor} посылает тебе воздушный поцелуй 🌬️",
@@ -116,7 +120,6 @@ ACTIONS = {
         "accepted": "{responder} согласился — как приятно ✨",
         "declined": "❌ {responder} пока не хочет этого",
     },
-
 }
 
 
@@ -128,7 +131,7 @@ def action_keyboard(action: str, actor_id: int) -> InlineKeyboardMarkup:
 
 
 def actions_menu() -> InlineKeyboardMarkup:
-    """Кнопочное меню: каждая кнопка открывает inline с готовым запросом."""
+    """Кнопки действий: открывают inline в текущем чате."""
     buttons = [
         InlineKeyboardButton(
             text=item["label"],
@@ -136,7 +139,30 @@ def actions_menu() -> InlineKeyboardMarkup:
         )
         for item in ACTIONS.values()
     ]
-    # Раскладка: по две кнопки в ряд
+    rows = [buttons[i:i + 2] for i in range(0, len(buttons), 2)]
+    return InlineKeyboardMarkup(inline_keyboard=rows)
+
+
+def main_menu() -> InlineKeyboardMarkup:
+    """Главное меню: действия + кнопка удачи."""
+    buttons = [
+        InlineKeyboardButton(
+            text=item["label"],
+            switch_inline_query_current_chat=item["keywords"][0],
+        )
+        for item in ACTIONS.values()
+    ]
+    buttons.append(InlineKeyboardButton(text="🎲 Испытать удачу", callback_data="luck"))
+    rows = [buttons[i:i + 2] for i in range(0, len(buttons), 2)]
+    return InlineKeyboardMarkup(inline_keyboard=rows)
+
+
+def luck_menu() -> InlineKeyboardMarkup:
+    """Выбор действия для броска удачи."""
+    buttons = [
+        InlineKeyboardButton(text=item["label"], callback_data=f"luck:{action}")
+        for action, item in ACTIONS.items()
+    ]
     rows = [buttons[i:i + 2] for i in range(0, len(buttons), 2)]
     return InlineKeyboardMarkup(inline_keyboard=rows)
 
@@ -173,9 +199,9 @@ async def inline_actions(inline_query: InlineQuery):
             InlineQueryResultArticle(
                 id="hint",
                 title="Нет такого действия",
-                description="Набери: обнять, поцеловать, погладить, ущипнуть или шлепнуть",
+                description="Выбери действие в меню или набери что-нибудь",
                 input_message_content=InputTextMessageContent(
-                    message_text="Выбери действие из меню или набери: обнять, поцеловать, погладить, ущипнуть, шлепнуть",
+                    message_text="Выбери действие в меню 💕",
                 ),
             )
         )
@@ -205,23 +231,80 @@ async def rp_callback(callback: CallbackQuery):
     await callback.answer()
 
 
+@dp.callback_query(F.data == "luck")
+async def luck_start(callback: CallbackQuery):
+    """Шаг 1: показать выбор действия."""
+    await callback.message.edit_text(
+        "🎲 Испытаем удачу. Выбери действие — и оно улетит случайному человеку из тех, кто запускал бота.",
+        reply_markup=luck_menu(),
+    )
+    await callback.answer()
+
+
+@dp.callback_query(F.data.startswith("luck:"))
+async def luck_send(callback: CallbackQuery):
+    """Шаг 2: отправить выбранное действие случайному пользователю."""
+    action = callback.data.split(":", 1)[1]
+    item = ACTIONS.get(action)
+    if not item:
+        await callback.answer("Неизвестное действие", show_alert=True)
+        return
+
+    uid = callback.from_user.id
+    fname = callback.from_user.first_name or "Кто-то"
+
+    others = [(u, f) for u, f in USERS if u != uid]
+    if not others:
+        await callback.answer(
+            "Пока не с кем играть: другие пользователи ещё не запускали бота",
+            show_alert=True,
+        )
+        return
+
+    target_id, target_name = random.choice(others)
+
+    try:
+        await bot.send_message(
+            chat_id=target_id,
+            text=item["offer"].format(actor=fname),
+            reply_markup=action_keyboard(action, uid),
+        )
+    except Exception:
+        await callback.message.edit_text(
+            "Не получилось доставить сообщение: этот человек давно не общался с ботом. Попробуй ещё раз.",
+            reply_markup=main_menu(),
+        )
+        await callback.answer()
+        return
+
+    await callback.message.edit_text(
+        f"Твоё «{item['label']}» улетело к {target_name}. Что ответит — узнаем, когда он нажмёт кнопку 💕",
+        reply_markup=main_menu(),
+    )
+    await callback.answer()
+
+
 @dp.message(CommandStart())
 async def cmd_start(message: Message):
+    uid = message.from_user.id
+    fname = message.from_user.first_name or "Пользователь"
+    if uid not in [u for u, _ in USERS]:
+        USERS.append((uid, fname))
+
     await message.answer(
         "Ну-ну, кто здесь хочет немного нежностей? 😏\n\n"
-        "Я передаю желания: обнимашки, поцелуи, поглаживания, "
-        "щипки и шлепки. Принять или отказаться — решает тот, кому адресовано.\n\n"
-        "Нажми на кнопку — выбери собеседника — и флирт начнётся 💋",
-        reply_markup=actions_menu(),
+        "Обнимашки, поцелуи, комплименты… Принять или отказаться решает тот, кому адресовано.\n\n"
+        "Нажми на кнопку — выбери собеседника — и флирт начнётся. "
+        "А если хочется сюрприза — жми «🎲 Испытать удачу» 💋",
+        reply_markup=main_menu(),
     )
 
 
 @dp.message()
 async def fallback(message: Message):
     await message.answer(
-        f"Жду признаний. Набери {BOT_NAME} и слово из списка: "
-        "обнять, поцеловать, погладить, ущипнуть или шлепнуть 💕",
-        reply_markup=actions_menu(),
+        "Давай поиграем. Нажми /start и выбери действие в меню 💕",
+        reply_markup=main_menu(),
     )
 
 
