@@ -17,70 +17,62 @@ TOKEN = os.getenv("TOKEN")
 if not TOKEN:
     raise RuntimeError("Переменная окружения TOKEN не задана")
 
-print("=== BOT v5 ===")
+print("=== BOT v7 ===")
 
 bot = Bot(token=TOKEN)
 dp = Dispatcher()
 
 ACTIONS = {
     "hug": {
-        "label": "🤗 Обнять",
+        "label": "Обнять",
         "keywords": ["обнять", "обня", "hug"],
-        "offer": "{actor} хочет тебя обнять 🤗",
-        "accepted": "🤗 {responder} принял(а) обнимашки!",
-        "declined": "❌ {responder} отказался(ась) от обнимашек",
+        "offer": "{actor} хочет тебя обнять",
+        "accepted": "{responder} принял(а) обнимашки",
+        "declined": "{responder} отказался(ась) от обнимашек",
     },
     "kiss": {
-        "label": "😘 Поцеловать",
+        "label": "Поцеловать",
         "keywords": ["поцелу", "целовать", "kiss", "чмок"],
-        "offer": "{actor} целует тебя 😘",
-        "accepted": "😘 {responder} ответил(а) на поцелуй!",
-        "declined": "❌ {responder} увернулся(лась) от поцелуя",
+        "offer": "{actor} целует тебя",
+        "accepted": "{responder} ответил(а) на поцелуй",
+        "declined": "{responder} увернулся(лась)",
     },
     "pet": {
-        "label": "😊 Погладить",
+        "label": "Погладить",
         "keywords": ["поглад", "гладить", "pet"],
-        "offer": "{actor} хочет погладить тебя 😊",
-        "accepted": "😊 {responder} разрешил(а) себя погладить — приятно!",
-        "declined": "❌ {responder} отвернулся(лась) от руки",
+        "offer": "{actor} хочет погладить тебя",
+        "accepted": "{responder} разрешил(а) себя погладить",
+        "declined": "{responder} отвернулся(лась)",
     },
     "pinch": {
-        "label": "🤏 Ущипнуть",
+        "label": "Ущипнуть",
         "keywords": ["ущип", "щип", "pinch"],
-        "offer": "{actor} целится ущипнуть тебя 🤏",
-        "accepted": "🤏 {responder} получил(а) щипок — «ай, больно!»",
-        "declined": "❌ {responder} успел(а) увернуться от щипка",
+        "offer": "{actor} целится ущипнуть тебя",
+        "accepted": "{responder} получил(а) щипок — «ай, больно!»",
+        "declined": "{responder} успел(а) увернуться",
     },
     "smack": {
-        "label": "👋 Шлепнуть по попке",
+        "label": "Шлепнуть по попке",
         "keywords": ["шлеп", "попк", "smack"],
-        "offer": "{actor} замахивается шлепнуть тебя по попке 👋",
-        "accepted": "👋 {responder} получил(а) шлепок по попке!",
-        "declined": "❌ {responder} ловко увернулся(лась) от шлепка",
+        "offer": "{actor} замахивается шлепнуть тебя по попке",
+        "accepted": "{responder} получил(а) шлепок по попке",
+        "declined": "{responder} ловко увернулся(лась)",
     },
 }
 
 
 def action_keyboard(action: str, actor_id: int) -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(inline_keyboard=[[
-        InlineKeyboardButton(
-            text="✅ Принять",
-            callback_data=f"rp:{action}:yes:{actor_id}",
-        ),
-        InlineKeyboardButton(
-            text="❌ Отказать",
-            callback_data=f"rp:{action}:no:{actor_id}",
-        ),
+        InlineKeyboardButton(text="✅ Принять", callback_data=f"rp:{action}:yes:{actor_id}"),
+        InlineKeyboardButton(text="❌ Отказаться", callback_data=f"rp:{action}:no:{actor_id}"),
     ]])
 
 
 def find_action(query: str) -> list[str]:
-    """Ключи действий, подходящих под текст запроса."""
     if not query.strip():
         return list(ACTIONS)
     q = query.lower().strip()
-    return [key for key, item in ACTIONS.items()
-            if any(k in q for k in item["keywords"])]
+    return [key for key, item in ACTIONS.items() if any(k in q for k in item["keywords"])]
 
 
 @dp.inline_query()
@@ -93,9 +85,9 @@ async def inline_actions(inline_query: InlineQuery):
         item = ACTIONS[action]
         results.append(
             InlineQueryResultArticle(
-                id=f"{action}",
+                id=action,
                 title=item["label"],
-                description="Отправит предложение с кнопками принять/отказать",
+                description="Отправит предложение с кнопками",
                 input_message_content=InputTextMessageContent(
                     message_text=item["offer"].format(actor=actor),
                 ),
@@ -110,7 +102,7 @@ async def inline_actions(inline_query: InlineQuery):
                 title="Нет такого действия",
                 description="Напиши: обнять, поцеловать, погладить, ущипнуть или шлепнуть",
                 input_message_content=InputTextMessageContent(
-                    message_text="Напиши @имя_бота и слово: обнять, поцеловать, погладить, ущипнуть или шлепнуть 😉",
+                    message_text="Набери @имя_бота и слово: обнять, поцеловать, погладить, ущипнуть, шлепнуть",
                 ),
             )
         )
@@ -124,10 +116,7 @@ async def rp_callback(callback: CallbackQuery):
     actor_id = int(actor_id_str)
 
     if callback.from_user.id == actor_id:
-        await callback.answer(
-            "Нельзя отвечать на собственное предложение 🙂",
-            show_alert=True,
-        )
+        await callback.answer("Нельзя отвечать на собственное сообщение", show_alert=True)
         return
 
     item = ACTIONS[action]
@@ -136,10 +125,7 @@ async def rp_callback(callback: CallbackQuery):
     )
 
     if callback.inline_message_id:
-        await bot.edit_message_text(
-            inline_message_id=callback.inline_message_id,
-            text=text,
-        )
+        await bot.edit_message_text(inline_message_id=callback.inline_message_id, text=text)
     elif callback.message:
         await callback.message.edit_text(text)
 
@@ -149,18 +135,16 @@ async def rp_callback(callback: CallbackQuery):
 @dp.message(CommandStart())
 async def cmd_start(message: Message):
     await message.answer(
-        "Привет! Это RP-бот 🎭\n\n"
-        "Напиши в поле сообщения @имя_бота — всплывут команды. "
-        "Выбери действие — собеседник получит кнопки "
-        "«Принять» и «Отказать»."
+        "Привет. Напиши @имя_бота в поле сообщения — появится список действий. "
+        "Выбери одно: собеседник получит сообщение и кнопки «✅ Принять» / «❌ Отказаться»."
     )
 
 
 @dp.message()
 async def fallback(message: Message):
     await message.answer(
-        "Работаю через inline: набери @имя_бота и слово из списка — "
-        "обнять, поцеловать, погладить, ущипнуть, шлепнуть 🙂"
+        "Работаю через inline. Набери @имя_бота и слово из списка: "
+        "обнять, поцеловать, погладить, ущипнуть, шлепнуть."
     )
 
 
