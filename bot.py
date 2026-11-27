@@ -3,13 +3,12 @@ import os
 import random
 
 from aiogram import Bot, Dispatcher, types
-from aiogram.filters import Command, CommandObject
+from aiogram.filters import Command, CommandObject, CommandStart
+from aiogram.types import Message
 
 TOKEN = os.getenv("TOKEN")
 if not TOKEN:
     raise RuntimeError("Переменная окружения TOKEN не задана")
-
-
 
 bot = Bot(token=TOKEN)
 dp = Dispatcher()
@@ -33,6 +32,15 @@ def get_target(message: types.Message) -> str | None:
     if message.reply_to_message and message.reply_to_message.from_user:
         return message.reply_to_message.from_user.first_name
     return None
+
+
+@dp.message(CommandStart())
+async def cmd_start(message: Message):
+    text = (
+        f"Привет, {message.from_user.first_name}! 👋\n\n"
+        "Это бот с ролевыми командами. Нажимай /start, когда вернёшься."
+    )
+    await message.answer(text)
 
 
 @dp.message(Command(*RP_COMMANDS, ignore_case=True))
