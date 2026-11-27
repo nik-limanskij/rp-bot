@@ -17,7 +17,7 @@ TOKEN = os.getenv("TOKEN")
 if not TOKEN:
     raise RuntimeError("Переменная окружения TOKEN не задана")
 
-print("=== BOT v9 ===")
+print("=== BOT v10 ===")
 
 bot = Bot(token=TOKEN)
 dp = Dispatcher()
