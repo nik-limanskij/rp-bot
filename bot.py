@@ -17,10 +17,12 @@ TOKEN = os.getenv("TOKEN")
 if not TOKEN:
     raise RuntimeError("Переменная окружения TOKEN не задана")
 
-print("=== BOT v7 ===")
+print("=== BOT v8 ===")
 
 bot = Bot(token=TOKEN)
 dp = Dispatcher()
+
+BOT_NAME = "@love_fantasies_rp_bot"
 
 ACTIONS = {
     "hug": {
@@ -100,9 +102,9 @@ async def inline_actions(inline_query: InlineQuery):
             InlineQueryResultArticle(
                 id="hint",
                 title="Нет такого действия",
-                description="Напиши: обнять, поцеловать, погладить, ущипнуть или шлепнуть",
+                description=f"Набери {BOT_NAME} и слово: обнять, поцеловать, погладить, ущипнуть или шлепнуть",
                 input_message_content=InputTextMessageContent(
-                    message_text="Набери @имя_бота и слово: обнять, поцеловать, погладить, ущипнуть, шлепнуть",
+                    message_text=f"Набери {BOT_NAME} и слово из списка — обнять, поцеловать, погладить, ущипнуть, шлепнуть",
                 ),
             )
         )
@@ -135,16 +137,19 @@ async def rp_callback(callback: CallbackQuery):
 @dp.message(CommandStart())
 async def cmd_start(message: Message):
     await message.answer(
-        "Привет. Напиши @имя_бота в поле сообщения — появится список действий. "
-        "Выбери одно: собеседник получит сообщение и кнопки «✅ Принять» / «❌ Отказаться»."
+        "Ну-ну, кто здесь хочет немного нежностей? 😏\n\n"
+        "Я передаю желания: обнимашки, поцелуи, поглаживания, "
+        "щипки и шлепки. Принять или отказаться — решает тот, кому адресовано.\n\n"
+        f"Набери {BOT_NAME} в поле сообщения и выбери действие. "
+        "Смелее — флирт сам себя не начнёт 💋"
     )
 
 
 @dp.message()
 async def fallback(message: Message):
     await message.answer(
-        "Работаю через inline. Набери @имя_бота и слово из списка: "
-        "обнять, поцеловать, погладить, ущипнуть, шлепнуть."
+        f"Жду признаний. Набери {BOT_NAME} и слово из списка: "
+        "обнять, поцеловать, погладить, ущипнуть или шлепнуть 💕"
     )
 
 
