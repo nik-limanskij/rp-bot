@@ -17,7 +17,7 @@ TOKEN = os.getenv("TOKEN")
 if not TOKEN:
     raise RuntimeError("Переменная окружения TOKEN не задана")
 
-print("=== BOT v8 ===")
+print("=== BOT v9 ===")
 
 bot = Bot(token=TOKEN)
 dp = Dispatcher()
@@ -60,64 +60,6 @@ ACTIONS = {
         "accepted": "{responder} получил(а) шлепок по попке",
         "declined": "{responder} ловко увернулся(лась)",
     },
-        "air_kiss": {
-        "label": "Воздушный поцелуй",
-        "keywords": ["воздушный", "чмок в воздух", "air_kiss"],
-        "offer": "{actor} посылает тебе воздушный поцелуй 🌬️",
-        "accepted": "{responder} поймал(а) его — как мило ✨",
-        "declined": "❌ {responder} не поймал(а) поцелуй",
-    },
-    "whisper": {
-        "label": "Прошептать на ушко",
-        "keywords": ["шёпот", "шептать", "whisper", "на ушко"],
-        "offer": "{actor} шепчет тебе на ушко 🤫",
-        "accepted": "{responder} прислушался(ась) — и ему/ей понравилось",
-        "declined": "❌ {responder} попросил(а) говорить громче",
-    },
-    "compliment": {
-        "label": "Сказать комплимент",
-        "keywords": ["комплимент", "ты красивый", "ты милая"],
-        "offer": "{actor} говорит тебе комплимент",
-        "accepted": "{responder} покраснел(а) — спасибо 💕",
-        "declined": "❌ {responder} смутился(ась) и отвернулся(лась)",
-    },
-    "cuddle": {
-        "label": "Прижаться и посидеть",
-        "keywords": ["прижаться", "посидеть рядом", "cuddle"],
-        "offer": "{actor} предлагает просто прижаться и посидеть рядом",
-        "accepted": "🤗 {responder} прижался(ась) — тепло и спокойно",
-        "declined": "❌ {responder} пока не готов(а) к такому",
-    },
-    "tickle": {
-        "label": "Пощекотать",
-        "keywords": ["щекот", "tickle", "пощекотать"],
-        "offer": "{actor} хочет тебя пощекотать 😊",
-        "accepted": "😆 {responder} засмеялся(ась) — это весело!",
-        "declined": "❌ {responder} увернулся(ась)",
-    },
-    "dance": {
-        "label": "Пригласить на танец",
-        "keywords": ["танец", "танцевать", "dance"],
-        "offer": "{actor} приглашает тебя на медленный танец",
-        "accepted": "💃 {responder} согласился(ась) — вы танцуете",
-        "declined": "❌ {responder} отказался(ась), но улыбнулся(ась)",
-    },
-    "sweet_msg": {
-        "label": "Отправить милое сообщение",
-        "keywords": ["сообщение", "написать", "sweet_msg"],
-        "offer": "{actor} отправляет тебе милое сообщение",
-        "accepted": "{responder} прочитал(а) и улыбнулся(ась) 💕",
-        "declined": "❌ {responder} отложил(а) телефон",
-    },
-        "massage": {
-        "label": "Сделать массаж",
-        "keywords": ["массаж", "массировать"],
-        "offer": "{actor} предлагает сделать тебе лёгкий массаж",
-        "accepted": "{responder} согласился — как приятно ✨",
-        "declined": "❌ {responder} пока не хочет этого",
-    },
-
-
 }
 
 
@@ -126,6 +68,20 @@ def action_keyboard(action: str, actor_id: int) -> InlineKeyboardMarkup:
         InlineKeyboardButton(text="✅ Принять", callback_data=f"rp:{action}:yes:{actor_id}"),
         InlineKeyboardButton(text="❌ Отказаться", callback_data=f"rp:{action}:no:{actor_id}"),
     ]])
+
+
+def actions_menu() -> InlineKeyboardMarkup:
+    """Кнопочное меню: каждая кнопка открывает inline с готовым запросом."""
+    buttons = [
+        InlineKeyboardButton(
+            text=item["label"],
+            switch_inline_query_current_chat=item["keywords"][0],
+        )
+        for item in ACTIONS.values()
+    ]
+    # Раскладка: по две кнопки в ряд
+    rows = [buttons[i:i + 2] for i in range(0, len(buttons), 2)]
+    return InlineKeyboardMarkup(inline_keyboard=rows)
 
 
 def find_action(query: str) -> list[str]:
@@ -160,9 +116,9 @@ async def inline_actions(inline_query: InlineQuery):
             InlineQueryResultArticle(
                 id="hint",
                 title="Нет такого действия",
-                description=f"Набери {BOT_NAME} и слово: обнять, поцеловать, погладить, ущипнуть или шлепнуть",
+                description="Набери: обнять, поцеловать, погладить, ущипнуть или шлепнуть",
                 input_message_content=InputTextMessageContent(
-                    message_text=f"Набери {BOT_NAME} и слово из списка — обнять, поцеловать, погладить, ущипнуть, шлепнуть",
+                    message_text="Выбери действие из меню или набери: обнять, поцеловать, погладить, ущипнуть, шлепнуть",
                 ),
             )
         )
@@ -198,8 +154,8 @@ async def cmd_start(message: Message):
         "Ну-ну, кто здесь хочет немного нежностей? 😏\n\n"
         "Я передаю желания: обнимашки, поцелуи, поглаживания, "
         "щипки и шлепки. Принять или отказаться — решает тот, кому адресовано.\n\n"
-        f"Набери {BOT_NAME} в поле сообщения и выбери действие. "
-        "Смелее — флирт сам себя не начнёт 💋"
+        "Нажми на кнопку — выбери собеседника — и флирт начнётся 💋",
+        reply_markup=actions_menu(),
     )
 
 
@@ -207,7 +163,8 @@ async def cmd_start(message: Message):
 async def fallback(message: Message):
     await message.answer(
         f"Жду признаний. Набери {BOT_NAME} и слово из списка: "
-        "обнять, поцеловать, погладить, ущипнуть или шлепнуть 💕"
+        "обнять, поцеловать, погладить, ущипнуть или шлепнуть 💕",
+        reply_markup=actions_menu(),
     )
 
 
