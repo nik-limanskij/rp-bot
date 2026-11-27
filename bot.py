@@ -7,7 +7,9 @@ from aiogram.filters import Command, CommandObject
 
 TOKEN = os.getenv("TOKEN")
 if not TOKEN:
-    raise RuntimeError("Не задана переменная окружения TOKEN")
+    raise RuntimeError("Переменная окружения TOKEN не задана")
+
+
 
 bot = Bot(token=TOKEN)
 dp = Dispatcher()
