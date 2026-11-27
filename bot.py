@@ -8,13 +8,15 @@ TOKEN = os.getenv("TOKEN")
 if not TOKEN:
     raise RuntimeError("Переменная окружения TOKEN не задана")
 
+print("=== BOT v2 ===")
+
 bot = Bot(token=TOKEN)
 dp = Dispatcher()
 
 
 @dp.message(CommandStart())
 async def cmd_start(message: types.Message):
-    await message.answer(f"Привет! Напиши /hello 🙂")
+    await message.answer("Привет! Напиши /hello 🙂")
 
 
 @dp.message(Command("hello"))
