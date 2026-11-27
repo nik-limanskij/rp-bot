@@ -17,32 +17,46 @@ TOKEN = os.getenv("TOKEN")
 if not TOKEN:
     raise RuntimeError("Переменная окружения TOKEN не задана")
 
-print("=== BOT v4 ===")
+print("=== BOT v5 ===")
 
 bot = Bot(token=TOKEN)
 dp = Dispatcher()
 
 ACTIONS = {
     "hug": {
-        "label": "🤗 Предложить обнять",
+        "label": "🤗 Обнять",
         "keywords": ["обнять", "обня", "hug"],
-        "offer": "{actor} предлагает тебе обнять 🤗",
-        "accepted": "🤗 {responder} принял(а) предложение! Обнимашки состоялись",
+        "offer": "{actor} хочет тебя обнять 🤗",
+        "accepted": "🤗 {responder} принял(а) обнимашки!",
         "declined": "❌ {responder} отказался(ась) от обнимашек",
     },
-    "highfive": {
-        "label": "🖐 Предложить дать пять",
-        "keywords": ["пять", "пятюню", "highfive"],
-        "offer": "{actor} предлагает тебе дать пять 🖐",
-        "accepted": "🖐 {responder} дал(а) пять!",
-        "declined": "❌ {responder} оставил(а) руку висеть в воздухе",
+    "kiss": {
+        "label": "😘 Поцеловать",
+        "keywords": ["поцелу", "целовать", "kiss", "чмок"],
+        "offer": "{actor} целует тебя 😘",
+        "accepted": "😘 {responder} ответил(а) на поцелуй!",
+        "declined": "❌ {responder} увернулся(лась) от поцелуя",
     },
-    "wink": {
-        "label": "😉 Подмигнуть",
-        "keywords": ["подмиг", "wink"],
-        "offer": "{actor} подмигивает тебе 😉",
-        "accepted": "😉 {responder} подмигнул(а) в ответ!",
-        "declined": "❌ {responder} сделал(а) вид, что не заметил(а)",
+    "pet": {
+        "label": "😊 Погладить",
+        "keywords": ["поглад", "гладить", "pet"],
+        "offer": "{actor} хочет погладить тебя 😊",
+        "accepted": "😊 {responder} разрешил(а) себя погладить — приятно!",
+        "declined": "❌ {responder} отвернулся(лась) от руки",
+    },
+    "pinch": {
+        "label": "🤏 Ущипнуть",
+        "keywords": ["ущип", "щип", "pinch"],
+        "offer": "{actor} целится ущипнуть тебя 🤏",
+        "accepted": "🤏 {responder} получил(а) щипок — «ай, больно!»",
+        "declined": "❌ {responder} успел(а) увернуться от щипка",
+    },
+    "smack": {
+        "label": "👋 Шлепнуть по попке",
+        "keywords": ["шлеп", "попк", "smack"],
+        "offer": "{actor} замахивается шлепнуть тебя по попке 👋",
+        "accepted": "👋 {responder} получил(а) шлепок по попке!",
+        "declined": "❌ {responder} ловко увернулся(лась) от шлепка",
     },
 }
 
@@ -94,9 +108,9 @@ async def inline_actions(inline_query: InlineQuery):
             InlineQueryResultArticle(
                 id="hint",
                 title="Нет такого действия",
-                description="Напиши: обнять, пять или подмигнуть",
+                description="Напиши: обнять, поцеловать, погладить, ущипнуть или шлепнуть",
                 input_message_content=InputTextMessageContent(
-                    message_text="Напиши @имя_бота и слово: обнять, пять или подмигнуть 😉",
+                    message_text="Напиши @имя_бота и слово: обнять, поцеловать, погладить, ущипнуть или шлепнуть 😉",
                 ),
             )
         )
@@ -121,8 +135,6 @@ async def rp_callback(callback: CallbackQuery):
         responder=callback.from_user.first_name,
     )
 
-    # Сообщение отправлено через inline — у него нет обычного chat_id,
-    # поэтому редактируем по inline_message_id
     if callback.inline_message_id:
         await bot.edit_message_text(
             inline_message_id=callback.inline_message_id,
@@ -139,7 +151,7 @@ async def cmd_start(message: Message):
     await message.answer(
         "Привет! Это RP-бот 🎭\n\n"
         "Напиши в поле сообщения @имя_бота — всплывут команды. "
-        "Выбери «Предложить обнять» — собеседник получит кнопки "
+        "Выбери действие — собеседник получит кнопки "
         "«Принять» и «Отказать»."
     )
 
@@ -147,7 +159,8 @@ async def cmd_start(message: Message):
 @dp.message()
 async def fallback(message: Message):
     await message.answer(
-        "Работаю через inline: набери @имя_бота в поле сообщения 🙂"
+        "Работаю через inline: набери @имя_бота и слово из списка — "
+        "обнять, поцеловать, погладить, ущипнуть, шлепнуть 🙂"
     )
 
 
