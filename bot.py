@@ -156,11 +156,16 @@ def action_keyboard(action: str, actor_id: int) -> InlineKeyboardMarkup:
 
 def main_menu() -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text="📌 Все команды", callback_data="show_actions")],
-        [InlineKeyboardButton(text="🎲 Испытать удачу", callback_data="luck")],
-        [InlineKeyboardButton(text="✉️ Пригласить друга", callback_data="invite")],
-        [InlineKeyboardButton(text="💬 Предложить команду", callback_data="suggest")],
+        [
+            InlineKeyboardButton(text="📌 Все команды", callback_data="show_actions"),
+            InlineKeyboardButton(text="🎲 Испытать удачу", callback_data="luck"),
+        ],
+        [
+            InlineKeyboardButton(text="✉️ Пригласить друга", callback_data="invite"),
+            InlineKeyboardButton(text="💬 Предложить команду", callback_data="suggest"),
+        ],
     ])
+
 
 
 def actions_menu() -> InlineKeyboardMarkup:
