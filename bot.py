@@ -15,17 +15,15 @@ from aiogram.types import (
 )
 
 TOKEN = os.getenv("TOKEN")
-if not TOKEN:
-    raise RuntimeError("Переменная окружения TOKEN не задана")
+# Найди свой chat_id (например, через @userinfobot) и вставь сюда
+ADMIN_ID = int(os.getenv("ADMIN_ID", "0"))
 
-print("=== BOT v12 ===")
+print("=== BOT v13 ===")
 
 bot = Bot(token=TOKEN)
 dp = Dispatcher()
 
 BOT_NAME = "@love_fantasies_rp_bot"
-
-# Те, кто нажал /start: список кортежей (user_id, first_name)
 USERS = []
 
 ACTIONS = {
@@ -122,6 +120,8 @@ ACTIONS = {
     },
 }
 
+waiting_for_suggest = set()  # user_id, которые сейчас пишут идею
+
 
 def action_keyboard(action: str, actor_id: int) -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(inline_keyboard=[[
@@ -130,83 +130,90 @@ def action_keyboard(action: str, actor_id: int) -> InlineKeyboardMarkup:
     ]])
 
 
-def actions_menu() -> InlineKeyboardMarkup:
-    """Кнопки действий: открывают inline в текущем чате."""
-    buttons = [
-        InlineKeyboardButton(
-            text=item["label"],
-            switch_inline_query_current_chat=item["keywords"][0],
-        )
-        for item in ACTIONS.values()
-    ]
-    rows = [buttons[i:i + 2] for i in range(0, len(buttons), 2)]
-    return InlineKeyboardMarkup(inline_keyboard=rows)
-
-
 def main_menu() -> InlineKeyboardMarkup:
-    """Главное меню: действия + кнопка удачи."""
-    buttons = [
-        InlineKeyboardButton(
-            text=item["label"],
-            switch_inline_query_current_chat=item["keywords"][0],
-        )
-        for item in ACTIONS.values()
-    ]
-    buttons.append(InlineKeyboardButton(text="🎲 Испытать удачу", callback_data="luck"))
-    rows = [buttons[i:i + 2] for i in range(0, len(buttons), 2)]
-    return InlineKeyboardMarkup(inline_keyboard=rows)
+    return InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text="📌 Все команды", callback_data="show_actions")],
+        [InlineKeyboardButton(text="💬 Предложить команду", callback_data="suggest")],
+    ])
 
 
-def luck_menu() -> InlineKeyboardMarkup:
-    """Выбор действия для броска удачи."""
+def actions_menu() -> InlineKeyboardMarkup:
     buttons = [
-        InlineKeyboardButton(text=item["label"], callback_data=f"luck:{action}")
+        InlineKeyboardButton(text=item["label"], callback_data=f"action:{action}")
         for action, item in ACTIONS.items()
     ]
     rows = [buttons[i:i + 2] for i in range(0, len(buttons), 2)]
     return InlineKeyboardMarkup(inline_keyboard=rows)
 
 
-def find_action(query: str) -> list[str]:
-    if not query.strip():
-        return list(ACTIONS)
-    q = query.lower().strip()
-    return [key for key, item in ACTIONS.items() if any(k in q for k in item["keywords"])]
+def cancel_menu() -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text="↩ Вернуться в меню", callback_data="main")]
+    ])
 
 
-@dp.inline_query()
-async def inline_actions(inline_query: InlineQuery):
-    actor = inline_query.from_user.first_name
-    keys = find_action(inline_query.query)
+@dp.callback_query(F.data == "show_actions")
+async def show_actions(callback: CallbackQuery):
+    await callback.message.edit_text("Выбери действие 💕", reply_markup=actions_menu())
+    await callback.answer()
 
-    results = []
-    for action in keys:
-        item = ACTIONS[action]
-        results.append(
-            InlineQueryResultArticle(
-                id=action,
-                title=item["label"],
-                description="Отправит предложение с кнопками",
-                input_message_content=InputTextMessageContent(
-                    message_text=item["offer"].format(actor=actor),
-                ),
-                reply_markup=action_keyboard(action, inline_query.from_user.id),
-            )
-        )
 
-    if not results:
-        results.append(
-            InlineQueryResultArticle(
-                id="hint",
-                title="Нет такого действия",
-                description="Выбери действие в меню или набери что-нибудь",
-                input_message_content=InputTextMessageContent(
-                    message_text="Выбери действие в меню 💕",
-                ),
-            )
-        )
+@dp.callback_query(F.data.startswith("action:"))
+async def send_action(callback: CallbackQuery):
+    action = callback.data.split(":", 1)
+    item = ACTIONS.get(action)
+    if not item:
+        await callback.answer("Что-то пошло не так", show_alert=True)
+        return
+    chat_id = callback.message.chat.id
+    actor = callback.from_user.first_name or "Кто-то"
+    await bot.send_message(
+        chat_id=chat_id,
+        text=item["offer"].format(actor=actor),
+        reply_markup=action_keyboard(action, callback.from_user.id)
+    )
+    await callback.answer()
 
-    await inline_query.answer(results, cache_time=1, is_personal=True)
+
+@dp.callback_query(F.data == "suggest")
+async def suggest_start(callback: CallbackQuery):
+    await callback.message.edit_text(
+        "Напиши свою идею для бота. Для возврата нажми «↩ Вернуться в меню».",
+        reply_markup=cancel_menu()
+    )
+    await callback.answer()
+    waiting_for_suggest.add(callback.from_user.id)
+
+
+@dp.callback_query(F.data == "main")
+async def to_main(callback: CallbackQuery):
+    await callback.message.edit_text(
+        "Ну-ну, кто здесь хочет немного нежностей? 😏\n\n"
+        "Нажми «📌 Все команды» или «💬 Предложить команду».",
+        reply_markup=main_menu()
+    )
+    await callback.answer()
+
+
+@dp.message()
+async def handle_message(message: Message):
+    if message.from_user.id in waiting_for_suggest:
+        waiting_for_suggest.discard(message.from_user.id)
+        if ADMIN_ID and ADMIN_ID != 0:
+            try:
+                username = f"@{message.from_user.username}" if message.from_user.username else message.from_user.first_name
+                await bot.send_message(
+                    chat_id=ADMIN_ID,
+                    text=f"💡 Предложение от {username} (ID: {message.from_user.id}):\n\n{message.text}"
+                )
+                await message.answer("Спасибо, идея ушла создателю ✨", reply_markup=main_menu())
+            except Exception:
+                await message.answer("Не получилось переслать. Проверь ADMIN_ID.", reply_markup=main_menu())
+        else:
+            await message.answer("Сохрани текст: ««", reply_markup=main_menu())
+        return
+
+    await message.answer("Нажми /start или «📌 Все команды», чтобы начать.", reply_markup=main_menu())
 
 
 @dp.callback_query(F.data.startswith("rp:"))
@@ -233,18 +240,16 @@ async def rp_callback(callback: CallbackQuery):
 
 @dp.callback_query(F.data == "luck")
 async def luck_start(callback: CallbackQuery):
-    """Шаг 1: показать выбор действия."""
     await callback.message.edit_text(
-        "🎲 Испытаем удачу. Выбери действие — и оно улетит случайному человеку из тех, кто запускал бота.",
-        reply_markup=luck_menu(),
+        "🎲 Испытаем удачу. Выбери действие — и оно улетит случайному человеку.",
+        reply_markup=actions_menu()
     )
     await callback.answer()
 
 
 @dp.callback_query(F.data.startswith("luck:"))
 async def luck_send(callback: CallbackQuery):
-    """Шаг 2: отправить выбранное действие случайному пользователю."""
-    action = callback.data.split(":", 1)[1]
+    action = callback.data.split(":", 1)
     item = ACTIONS.get(action)
     if not item:
         await callback.answer("Неизвестное действие", show_alert=True)
@@ -255,10 +260,7 @@ async def luck_send(callback: CallbackQuery):
 
     others = [(u, f) for u, f in USERS if u != uid]
     if not others:
-        await callback.answer(
-            "Пока не с кем играть: другие пользователи ещё не запускали бота",
-            show_alert=True,
-        )
+        await callback.answer("Пока не с кем играть. Пусть кто-нибудь ещё нажмёт /start 😊", show_alert=True)
         return
 
     target_id, target_name = random.choice(others)
@@ -267,19 +269,19 @@ async def luck_send(callback: CallbackQuery):
         await bot.send_message(
             chat_id=target_id,
             text=item["offer"].format(actor=fname),
-            reply_markup=action_keyboard(action, uid),
+            reply_markup=action_keyboard(action, uid)
         )
     except Exception:
         await callback.message.edit_text(
-            "Не получилось доставить сообщение: этот человек давно не общался с ботом. Попробуй ещё раз.",
-            reply_markup=main_menu(),
+            "Не получилось доставить: этот человек, скорее всего, заблокировал бота. Попробуй ещё раз.",
+            reply_markup=main_menu()
         )
         await callback.answer()
         return
 
     await callback.message.edit_text(
         f"Твоё «{item['label']}» улетело к {target_name}. Что ответит — узнаем, когда он нажмёт кнопку 💕",
-        reply_markup=main_menu(),
+        reply_markup=main_menu()
     )
     await callback.answer()
 
@@ -293,18 +295,9 @@ async def cmd_start(message: Message):
 
     await message.answer(
         "Ну-ну, кто здесь хочет немного нежностей? 😏\n\n"
-        "Обнимашки, поцелуи, комплименты… Принять или отказаться решает тот, кому адресовано.\n\n"
-        "Нажми на кнопку — выбери собеседника — и флирт начнётся. "
-        "А если хочется сюрприза — жми «🎲 Испытать удачу» 💋",
-        reply_markup=main_menu(),
-    )
-
-
-@dp.message()
-async def fallback(message: Message):
-    await message.answer(
-        "Давай поиграем. Нажми /start и выбери действие в меню 💕",
-        reply_markup=main_menu(),
+        "«Все команды» — чтобы выбирать вручную. «Испытать удачу» — чтобы отправить что-то случайному человеку. "
+        "«Предложить команду» — чтобы подсказать, чего не хватает 💋",
+        reply_markup=main_menu()
     )
 
 
